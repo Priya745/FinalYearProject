@@ -1,8 +1,23 @@
 from flask import Flask, render_template, request,redirect, url_for, session
 from transformers import pipeline
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"  # Required for session to work
+
+# SQLAlchemy Configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:mysql1234_@localhost/feedback_db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+class Feedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    category = db.Column(db.String(100), nullable=False)
+    feedback_text = db.Column(db.Text, nullable=False)
+    sentiment = db.Column(db.String(50), nullable=False)
+
 
 
 def analyze_sentiment(text):
@@ -56,6 +71,17 @@ def home():
         category = request.form.get('category')  # Get selected category
         feedback = request.form.get('text')      # Get feedback text
         sentiment = analyze_sentiment(feedback) if feedback else None  # Analyze only if feedback exists
+
+        if category and feedback and sentiment:
+            new_feedback = Feedback(
+                name=session.get('name'),
+                phone=session.get('phone'),
+                category=category,
+                feedback_text=feedback,
+                sentiment=sentiment
+            )
+            db.session.add(new_feedback)
+            db.session.commit()
 
     return render_template('index.html',
                            sentiment=sentiment,
